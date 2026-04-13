@@ -4,8 +4,11 @@ import { Report, ReportSummary } from "./types";
 
 const REPORTS_DIR = path.join(process.cwd(), "reports");
 
+// Check if running on Vercel (has Blob storage)
+const IS_VERCEL = !!process.env.BLOB_READ_WRITE_TOKEN;
+
 /**
- * Ensure reports directory exists
+ * Ensure reports directory exists (filesystem only)
  */
 async function ensureReportsDir() {
   try {
@@ -16,19 +19,10 @@ async function ensureReportsDir() {
 }
 
 /**
- * Save a report to disk (JSON + Markdown)
+ * Generate markdown content from report
  */
-export async function saveReport(report: Report): Promise<string> {
-  await ensureReportsDir();
-
-  const jsonPath = path.join(REPORTS_DIR, `${report.report_id}.json`);
-  const mdPath = path.join(REPORTS_DIR, `${report.report_id}.md`);
-
-  // Save JSON (full report data)
-  await fs.writeFile(jsonPath, JSON.stringify(report, null, 2), "utf-8");
-
-  // Save Markdown (for easy reading/sharing)
-  const markdownContent = `# ${report.title}
+function generateMarkdownContent(report: Report): string {
+  return `# ${report.title}
 
 Generated: ${new Date(report.metadata.generated_at).toLocaleString()}
 Commits: ${report.metadata.commit_count}
@@ -38,16 +32,59 @@ Date Range: ${report.metadata.date_range.start.split("T")[0]} to ${report.metada
 
 ${report.markdown}
 `;
+}
 
-  await fs.writeFile(mdPath, markdownContent, "utf-8");
+/**
+ * Save report to filesystem (local development)
+ */
+async function saveReportToFilesystem(report: Report): Promise<string> {
+  await ensureReportsDir();
+
+  const jsonPath = path.join(REPORTS_DIR, `${report.report_id}.json`);
+  const mdPath = path.join(REPORTS_DIR, `${report.report_id}.md`);
+
+  await fs.writeFile(jsonPath, JSON.stringify(report, null, 2), "utf-8");
+  await fs.writeFile(mdPath, generateMarkdownContent(report), "utf-8");
 
   return report.report_id;
 }
 
 /**
- * List all saved reports (sorted by date, newest first)
+ * Save report to Vercel Blob (production)
  */
-export async function listReports(): Promise<ReportSummary[]> {
+async function saveReportToBlob(report: Report): Promise<string> {
+  const { put } = await import("@vercel/blob");
+
+  const jsonContent = JSON.stringify(report, null, 2);
+  const mdContent = generateMarkdownContent(report);
+
+  // Save both JSON and Markdown to blob storage
+  await put(`reports/${report.report_id}.json`, jsonContent, {
+    access: "public",
+    contentType: "application/json",
+  });
+
+  await put(`reports/${report.report_id}.md`, mdContent, {
+    access: "public",
+    contentType: "text/markdown",
+  });
+
+  return report.report_id;
+}
+
+/**
+ * Save a report (auto-detects environment)
+ */
+export async function saveReport(report: Report): Promise<string> {
+  return IS_VERCEL
+    ? saveReportToBlob(report)
+    : saveReportToFilesystem(report);
+}
+
+/**
+ * List reports from filesystem (local development)
+ */
+async function listReportsFromFilesystem(): Promise<ReportSummary[]> {
   await ensureReportsDir();
 
   try {
@@ -72,7 +109,6 @@ export async function listReports(): Promise<ReportSummary[]> {
       })
     );
 
-    // Sort by generated date, newest first
     return reports.sort(
       (a, b) =>
         new Date(b.generated_at).getTime() -
@@ -85,9 +121,54 @@ export async function listReports(): Promise<ReportSummary[]> {
 }
 
 /**
- * Get a specific report by ID
+ * List reports from Vercel Blob (production)
  */
-export async function getReport(id: string): Promise<Report | null> {
+async function listReportsFromBlob(): Promise<ReportSummary[]> {
+  try {
+    const { list } = await import("@vercel/blob");
+
+    const { blobs } = await list({ prefix: "reports/", limit: 1000 });
+    const jsonBlobs = blobs.filter((b) => b.pathname.endsWith(".json"));
+
+    const reports = await Promise.all(
+      jsonBlobs.map(async (blob) => {
+        const response = await fetch(blob.url);
+        const report: Report = await response.json();
+
+        return {
+          id: report.report_id,
+          title: report.title,
+          generated_at: report.metadata.generated_at,
+          commit_count: report.metadata.commit_count,
+          date_range: report.metadata.date_range,
+        };
+      })
+    );
+
+    return reports.sort(
+      (a, b) =>
+        new Date(b.generated_at).getTime() -
+        new Date(a.generated_at).getTime()
+    );
+  } catch (error) {
+    console.error("Error listing reports from Blob:", error);
+    return [];
+  }
+}
+
+/**
+ * List all saved reports (sorted by date, newest first)
+ */
+export async function listReports(): Promise<ReportSummary[]> {
+  return IS_VERCEL
+    ? listReportsFromBlob()
+    : listReportsFromFilesystem();
+}
+
+/**
+ * Get report from filesystem (local development)
+ */
+async function getReportFromFilesystem(id: string): Promise<Report | null> {
   const filePath = path.join(REPORTS_DIR, `${id}.json`);
 
   try {
@@ -97,4 +178,31 @@ export async function getReport(id: string): Promise<Report | null> {
     console.error(`Report not found: ${id}`, error);
     return null;
   }
+}
+
+/**
+ * Get report from Vercel Blob (production)
+ */
+async function getReportFromBlob(id: string): Promise<Report | null> {
+  try {
+    const { head } = await import("@vercel/blob");
+
+    const blob = await head(`reports/${id}.json`);
+    if (!blob) return null;
+
+    const response = await fetch(blob.url);
+    return await response.json();
+  } catch (error) {
+    console.error(`Report not found in Blob: ${id}`, error);
+    return null;
+  }
+}
+
+/**
+ * Get a specific report by ID (auto-detects environment)
+ */
+export async function getReport(id: string): Promise<Report | null> {
+  return IS_VERCEL
+    ? getReportFromBlob(id)
+    : getReportFromFilesystem(id);
 }
