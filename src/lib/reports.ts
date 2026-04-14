@@ -81,9 +81,9 @@ export async function saveReport(report: Report): Promise<string> {
   if (IS_VERCEL) {
     return saveReportToBlob(report);
   } else {
-    // Local development: dynamically import filesystem module
-    const { saveReportToFilesystem } = await import("./reports-fs");
-    return saveReportToFilesystem(report);
+    // Non-Vercel environment: do not save, only return ID
+    console.log('⚠️ Non-Vercel environment: Report not saved');
+    return report.report_id;
   }
 }
 
@@ -154,9 +154,9 @@ export async function listReports(): Promise<ReportSummary[]> {
   if (IS_VERCEL) {
     return listReportsFromBlob();
   } else {
-    // Local development: dynamically import filesystem module
-    const { listReportsFromFilesystem } = await import("./reports-fs");
-    return listReportsFromFilesystem();
+    // Non-Vercel environment: return empty array
+    console.log('⚠️ Non-Vercel environment: Report listing disabled');
+    return [];
   }
 }
 
@@ -198,8 +198,8 @@ export async function getReport(id: string): Promise<Report | null> {
   if (IS_VERCEL) {
     return getReportFromBlob(id);
   } else {
-    // Local development: dynamically import filesystem module
-    const { getReportFromFilesystem } = await import("./reports-fs");
-    return getReportFromFilesystem(id);
+    // Non-Vercel environment: return null
+    console.log('⚠️ Non-Vercel environment: Report retrieval disabled');
+    return null;
   }
 }
