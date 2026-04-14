@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 
+// Check if running on Vercel
+const IS_VERCEL = !!process.env.BLOB_READ_WRITE_TOKEN;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,7 +21,41 @@ export async function GET(
 
     const { id } = await params;
 
-    // Get the markdown file path
+    // Vercel environment: use Blob storage
+    if (IS_VERCEL) {
+      const { get } = await import("@vercel/blob");
+
+      try {
+        // Use get() method for private blob access
+        const result = await get(`reports/${id}.md`, {
+          access: "private",
+        });
+
+        if (!result || result.statusCode !== 200) {
+          return NextResponse.json(
+            { error: "Report not found" },
+            { status: 404 }
+          );
+        }
+
+        // Return the stream directly to the client
+        return new NextResponse(result.stream, {
+          headers: {
+            "Content-Type": "text/markdown; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${id}.md"`,
+            "Cache-Control": "private, no-cache",
+          },
+        });
+      } catch (error) {
+        console.error("Blob download error:", error);
+        return NextResponse.json(
+          { error: "Report not found" },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Local development: use filesystem
     const reportsDir = path.join(process.cwd(), "reports");
     const mdPath = path.join(reportsDir, `${id}.md`);
 
@@ -38,7 +75,7 @@ export async function GET(
     // Return as downloadable file
     return new NextResponse(markdownContent, {
       headers: {
-        "Content-Type": "text/markdown",
+        "Content-Type": "text/markdown; charset=utf-8",
         "Content-Disposition": `attachment; filename="${id}.md"`,
       },
     });

@@ -60,13 +60,14 @@ async function saveReportToBlob(report: Report): Promise<string> {
     const mdContent = generateMarkdownContent(report);
 
     // Save both JSON and Markdown to blob storage
+    // Using private access to match Blob store configuration
     await put(`reports/${report.report_id}.json`, jsonContent, {
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
     });
 
     await put(`reports/${report.report_id}.md`, mdContent, {
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
     });
 
@@ -131,32 +132,49 @@ async function listReportsFromFilesystem(): Promise<ReportSummary[]> {
  */
 async function listReportsFromBlob(): Promise<ReportSummary[]> {
   try {
-    const { list } = await import("@vercel/blob");
+    const { list, get } = await import("@vercel/blob");
 
     const { blobs } = await list({ prefix: "reports/", limit: 1000 });
     const jsonBlobs = blobs.filter((b) => b.pathname.endsWith(".json"));
 
     const reports = await Promise.all(
       jsonBlobs.map(async (blob) => {
-        // For private blobs, the URL includes a token for access
-        const response = await fetch(blob.url);
-        const report: Report = await response.json();
+        try {
+          // Use get() method for private blob access
+          const result = await get(blob.pathname, {
+            access: "private",
+          });
 
-        return {
-          id: report.report_id,
-          title: report.title,
-          generated_at: report.metadata.generated_at,
-          commit_count: report.metadata.commit_count,
-          date_range: report.metadata.date_range,
-        };
+          if (!result || result.statusCode !== 200) {
+            return null;
+          }
+
+          // Read content from stream
+          const text = await result.stream.text();
+          const report: Report = JSON.parse(text);
+
+          return {
+            id: report.report_id,
+            title: report.title,
+            generated_at: report.metadata.generated_at,
+            commit_count: report.metadata.commit_count,
+            date_range: report.metadata.date_range,
+          };
+        } catch (error) {
+          console.error(`Failed to read blob: ${blob.pathname}`, error);
+          return null;
+        }
       })
     );
 
-    return reports.sort(
-      (a, b) =>
-        new Date(b.generated_at).getTime() -
-        new Date(a.generated_at).getTime()
-    );
+    // Filter out failed reads and sort
+    return reports
+      .filter((r) => r !== null)
+      .sort(
+        (a, b) =>
+          new Date(b.generated_at).getTime() -
+          new Date(a.generated_at).getTime()
+      );
   } catch (error) {
     console.error("Error listing reports from Blob:", error);
     return [];
@@ -192,14 +210,20 @@ async function getReportFromFilesystem(id: string): Promise<Report | null> {
  */
 async function getReportFromBlob(id: string): Promise<Report | null> {
   try {
-    const { head } = await import("@vercel/blob");
+    const { get } = await import("@vercel/blob");
 
-    const blob = await head(`reports/${id}.json`);
-    if (!blob) return null;
+    // Use get() method for private blob access
+    const result = await get(`reports/${id}.json`, {
+      access: "private",
+    });
 
-    // For private blobs, the URL includes a token for access
-    const response = await fetch(blob.url);
-    return await response.json();
+    if (!result || result.statusCode !== 200) {
+      return null;
+    }
+
+    // Read content from stream
+    const text = await result.stream.text();
+    return JSON.parse(text);
   } catch (error) {
     console.error(`Report not found in Blob: ${id}`, error);
     return null;
