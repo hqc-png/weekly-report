@@ -35,4 +35,5 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/",
   },
+  trustHost: true, // Trust the host header for production deployment
 });
