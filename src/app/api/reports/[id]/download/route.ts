@@ -1,13 +1,11 @@
 import { auth } from "@/auth";
-import { getReport } from "@/lib/reports";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
 
 export const runtime = 'edge';
 
-// Check if running on Vercel
+// Check if running on Vercel or Cloudflare
 const IS_VERCEL = !!process.env.BLOB_READ_WRITE_TOKEN;
+const IS_CLOUDFLARE = !!process.env.CF_PAGES;
 
 export async function GET(
   request: NextRequest,
@@ -22,6 +20,14 @@ export async function GET(
     }
 
     const { id } = await params;
+
+    // Cloudflare Pages: not supported in test mode
+    if (IS_CLOUDFLARE) {
+      return NextResponse.json(
+        { error: "Download not available in Cloudflare test mode" },
+        { status: 501 }
+      );
+    }
 
     // Vercel environment: use Blob storage
     if (IS_VERCEL) {
@@ -57,30 +63,11 @@ export async function GET(
       }
     }
 
-    // Local development: use filesystem
-    const reportsDir = path.join(process.cwd(), "reports");
-    const mdPath = path.join(reportsDir, `${id}.md`);
-
-    // Check if file exists
-    try {
-      await fs.access(mdPath);
-    } catch {
-      return NextResponse.json(
-        { error: "Report not found" },
-        { status: 404 }
-      );
-    }
-
-    // Read the markdown file
-    const markdownContent = await fs.readFile(mdPath, "utf-8");
-
-    // Return as downloadable file
-    return new NextResponse(markdownContent, {
-      headers: {
-        "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${id}.md"`,
-      },
-    });
+    // Local development: Edge runtime doesn't support fs
+    return NextResponse.json(
+      { error: "Download only available in production (Vercel)" },
+      { status: 501 }
+    );
   } catch (error) {
     console.error("Error downloading report:", error);
     return NextResponse.json(
