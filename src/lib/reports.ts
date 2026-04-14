@@ -60,14 +60,13 @@ async function saveReportToBlob(report: Report): Promise<string> {
     const mdContent = generateMarkdownContent(report);
 
     // Save both JSON and Markdown to blob storage
-    // Using private access to match Blob store configuration
     await put(`reports/${report.report_id}.json`, jsonContent, {
-      access: "private",
+      access: "public",
       addRandomSuffix: false,
     });
 
     await put(`reports/${report.report_id}.md`, mdContent, {
-      access: "private",
+      access: "public",
       addRandomSuffix: false,
     });
 
