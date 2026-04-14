@@ -6,6 +6,8 @@ import { getWeekNumber, formatDateRange } from "@/lib/date-utils";
 import { NextRequest, NextResponse } from "next/server";
 import { Report } from "@/lib/types";
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Verify authentication

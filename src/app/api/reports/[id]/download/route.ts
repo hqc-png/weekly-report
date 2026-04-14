@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 
+export const runtime = 'edge';
+
 // Check if running on Vercel
 const IS_VERCEL = !!process.env.BLOB_READ_WRITE_TOKEN;
 

@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { fetchUserRepositories } from "@/lib/github";
 import { NextResponse } from "next/server";
 
+export const runtime = 'edge';
+
 export async function GET() {
   try {
     // Verify authentication

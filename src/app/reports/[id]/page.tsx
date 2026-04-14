@@ -7,6 +7,8 @@ import { ShareButton } from "@/components/reports/ShareButton";
 import { Card } from "@/components/ui/Card";
 import { formatDateRange } from "@/lib/date-utils";
 
+export const runtime = 'edge';
+
 export default async function ReportDetailPage({
   params,
 }: {

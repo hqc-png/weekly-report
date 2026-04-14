@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { getReport } from "@/lib/reports";
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = 'edge';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
