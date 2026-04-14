@@ -52,11 +52,16 @@ export async function fetchUserCommits(
   const octokit = new Octokit({ auth: accessToken });
   const allCommits: GitHubCommit[] = [];
 
+  console.log(`[GitHub API] Fetching commits for user: ${username}`);
+  console.log(`[GitHub API] Repositories:`, repositories);
+  console.log(`[GitHub API] Date range: ${since} to ${until}`);
+
   // Fetch user's email addresses to match commits
   let userEmails: string[] = [];
   try {
     const { data: emails } = await octokit.users.listEmailsForAuthenticatedUser();
     userEmails = emails.map((email) => email.email.toLowerCase());
+    console.log(`[GitHub API] User emails:`, userEmails);
   } catch (error) {
     console.error("Failed to fetch user emails:", error);
   }
@@ -73,17 +78,28 @@ export async function fetchUserCommits(
         per_page: 100,
       });
 
+      console.log(`[GitHub API] ${repo}: Found ${data.length} total commits`);
+
       // Filter commits to only include those authored by the authenticated user
       const userCommits = data.filter((commit) => {
         const authorLogin = commit.author?.login?.toLowerCase();
         const authorEmail = commit.commit.author?.email?.toLowerCase();
 
         // Match by GitHub username or email
-        return (
+        const matches = (
           authorLogin === username.toLowerCase() ||
           (authorEmail && userEmails.includes(authorEmail))
         );
+
+        if (!matches && data.length < 10) {
+          // Log first few commits if none match
+          console.log(`[GitHub API] ${repo}: Commit by ${authorLogin || 'unknown'} (${authorEmail}) - FILTERED OUT`);
+        }
+
+        return matches;
       });
+
+      console.log(`[GitHub API] ${repo}: ${userCommits.length} commits match user ${username}`);
 
       // Transform and add to results
       userCommits.forEach((commit) => {
@@ -107,6 +123,8 @@ export async function fetchUserCommits(
       }
     }
   }
+
+  console.log(`[GitHub API] Total commits found: ${allCommits.length}`);
 
   // Sort commits by date (newest first)
   return allCommits.sort(
