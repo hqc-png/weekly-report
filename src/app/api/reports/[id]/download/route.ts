@@ -5,7 +5,7 @@ export const runtime = 'edge';
 
 // Check if running on Vercel or Cloudflare
 const IS_VERCEL = !!process.env.BLOB_READ_WRITE_TOKEN;
-const IS_CLOUDFLARE = !!process.env.CF_PAGES;
+const IS_CLOUDFLARE = !!process.env.IS_CLOUDFLARE_PAGES;
 
 export async function GET(
   request: NextRequest,
@@ -21,10 +21,10 @@ export async function GET(
 
     const { id } = await params;
 
-    // Cloudflare Pages: not supported in test mode
+    // Cloudflare Pages: not supported in preview mode
     if (IS_CLOUDFLARE) {
       return NextResponse.json(
-        { error: "Download not available in Cloudflare test mode" },
+        { error: "Download not available in Cloudflare preview mode" },
         { status: 501 }
       );
     }

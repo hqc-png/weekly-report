@@ -72,17 +72,17 @@ async function saveReportToBlob(report: Report): Promise<string> {
  * Save a report (auto-detects environment)
  */
 export async function saveReport(report: Report): Promise<string> {
-  // Cloudflare Pages test mode: disable saving
-  if (process.env.CF_PAGES === '1') {
-    console.log('⚠️ Cloudflare Pages test mode: Report saving disabled');
+  // Cloudflare Pages: disable saving (preview mode)
+  if (process.env.IS_CLOUDFLARE_PAGES === '1') {
+    console.log('⚠️ Cloudflare Pages: Report saving disabled (preview mode)');
     return report.report_id;
   }
 
   if (IS_VERCEL) {
     return saveReportToBlob(report);
   } else {
-    // Non-Vercel environment: do not save, only return ID
-    console.log('⚠️ Non-Vercel environment: Report not saved');
+    // Local development: do not save
+    console.log('⚠️ Local environment: Report not saved');
     return report.report_id;
   }
 }
@@ -145,17 +145,17 @@ async function listReportsFromBlob(): Promise<ReportSummary[]> {
  * List all saved reports (sorted by date, newest first)
  */
 export async function listReports(): Promise<ReportSummary[]> {
-  // Cloudflare Pages test mode: return empty list
-  if (process.env.CF_PAGES === '1') {
-    console.log('⚠️ Cloudflare Pages test mode: Report listing disabled');
+  // Cloudflare Pages: return empty list (preview mode)
+  if (process.env.IS_CLOUDFLARE_PAGES === '1') {
+    console.log('⚠️ Cloudflare Pages: Report listing disabled (preview mode)');
     return [];
   }
 
   if (IS_VERCEL) {
     return listReportsFromBlob();
   } else {
-    // Non-Vercel environment: return empty array
-    console.log('⚠️ Non-Vercel environment: Report listing disabled');
+    // Local development: return empty array
+    console.log('⚠️ Local environment: Report listing disabled');
     return [];
   }
 }
@@ -189,17 +189,17 @@ async function getReportFromBlob(id: string): Promise<Report | null> {
  * Get a specific report by ID (auto-detects environment)
  */
 export async function getReport(id: string): Promise<Report | null> {
-  // Cloudflare Pages test mode: not supported
-  if (process.env.CF_PAGES === '1') {
-    console.log('⚠️ Cloudflare Pages test mode: Report retrieval disabled');
+  // Cloudflare Pages: not supported (preview mode)
+  if (process.env.IS_CLOUDFLARE_PAGES === '1') {
+    console.log('⚠️ Cloudflare Pages: Report retrieval disabled (preview mode)');
     return null;
   }
 
   if (IS_VERCEL) {
     return getReportFromBlob(id);
   } else {
-    // Non-Vercel environment: return null
-    console.log('⚠️ Non-Vercel environment: Report retrieval disabled');
+    // Local development: return null
+    console.log('⚠️ Local environment: Report retrieval disabled');
     return null;
   }
 }
