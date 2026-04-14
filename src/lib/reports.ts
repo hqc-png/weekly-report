@@ -1,8 +1,4 @@
-import fs from "fs/promises";
-import path from "path";
 import { Report, ReportSummary } from "./types";
-
-const REPORTS_DIR = path.join(process.cwd(), "reports");
 
 // Check if running on Vercel (has Blob storage)
 const IS_VERCEL = !!process.env.BLOB_READ_WRITE_TOKEN;
@@ -30,6 +26,11 @@ async function streamToText(stream: ReadableStream): Promise<string> {
  * Ensure reports directory exists (filesystem only)
  */
 async function ensureReportsDir() {
+  const path = await import("path");
+  const fs = await import("fs/promises");
+
+  const REPORTS_DIR = path.join(process.cwd(), "reports");
+
   try {
     await fs.access(REPORTS_DIR);
   } catch {
@@ -58,6 +59,10 @@ ${report.markdown}
  */
 async function saveReportToFilesystem(report: Report): Promise<string> {
   await ensureReportsDir();
+
+  const path = await import("path");
+  const fs = await import("fs/promises");
+  const REPORTS_DIR = path.join(process.cwd(), "reports");
 
   const jsonPath = path.join(REPORTS_DIR, `${report.report_id}.json`);
   const mdPath = path.join(REPORTS_DIR, `${report.report_id}.md`);
@@ -118,6 +123,10 @@ export async function saveReport(report: Report): Promise<string> {
  */
 async function listReportsFromFilesystem(): Promise<ReportSummary[]> {
   await ensureReportsDir();
+
+  const path = await import("path");
+  const fs = await import("fs/promises");
+  const REPORTS_DIR = path.join(process.cwd(), "reports");
 
   try {
     const files = await fs.readdir(REPORTS_DIR);
@@ -225,6 +234,10 @@ export async function listReports(): Promise<ReportSummary[]> {
  * Get report from filesystem (local development)
  */
 async function getReportFromFilesystem(id: string): Promise<Report | null> {
+  const path = await import("path");
+  const fs = await import("fs/promises");
+  const REPORTS_DIR = path.join(process.cwd(), "reports");
+
   const filePath = path.join(REPORTS_DIR, `${id}.json`);
 
   try {
