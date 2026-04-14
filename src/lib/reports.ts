@@ -60,12 +60,14 @@ async function saveReportToBlob(report: Report): Promise<string> {
     const mdContent = generateMarkdownContent(report);
 
     // Save both JSON and Markdown to blob storage
-    // Note: Using default access (private) since our Blob store is configured as private
+    // Using private access to match Blob store configuration
     await put(`reports/${report.report_id}.json`, jsonContent, {
+      access: "private",
       addRandomSuffix: false,
     });
 
     await put(`reports/${report.report_id}.md`, mdContent, {
+      access: "private",
       addRandomSuffix: false,
     });
 
@@ -130,15 +132,19 @@ async function listReportsFromFilesystem(): Promise<ReportSummary[]> {
  */
 async function listReportsFromBlob(): Promise<ReportSummary[]> {
   try {
-    const { list } = await import("@vercel/blob");
+    const { list, download } = await import("@vercel/blob");
 
     const { blobs } = await list({ prefix: "reports/", limit: 1000 });
     const jsonBlobs = blobs.filter((b) => b.pathname.endsWith(".json"));
 
     const reports = await Promise.all(
       jsonBlobs.map(async (blob) => {
-        const response = await fetch(blob.url);
-        const report: Report = await response.json();
+        // Use download() for private blobs
+        const { body } = await download(blob.url, {
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
+        const text = await body.text();
+        const report: Report = JSON.parse(text);
 
         return {
           id: report.report_id,
@@ -190,13 +196,18 @@ async function getReportFromFilesystem(id: string): Promise<Report | null> {
  */
 async function getReportFromBlob(id: string): Promise<Report | null> {
   try {
-    const { head } = await import("@vercel/blob");
+    const { head, download } = await import("@vercel/blob");
 
     const blob = await head(`reports/${id}.json`);
     if (!blob) return null;
 
-    const response = await fetch(blob.url);
-    return await response.json();
+    // Use download() for private blobs
+    const { body } = await download(blob.url, {
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+
+    const text = await body.text();
+    return JSON.parse(text);
   } catch (error) {
     console.error(`Report not found in Blob: ${id}`, error);
     return null;
