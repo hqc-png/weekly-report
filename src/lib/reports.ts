@@ -53,23 +53,29 @@ async function saveReportToFilesystem(report: Report): Promise<string> {
  * Save report to Vercel Blob (production)
  */
 async function saveReportToBlob(report: Report): Promise<string> {
-  const { put } = await import("@vercel/blob");
+  try {
+    const { put } = await import("@vercel/blob");
 
-  const jsonContent = JSON.stringify(report, null, 2);
-  const mdContent = generateMarkdownContent(report);
+    const jsonContent = JSON.stringify(report, null, 2);
+    const mdContent = generateMarkdownContent(report);
 
-  // Save both JSON and Markdown to blob storage
-  await put(`reports/${report.report_id}.json`, jsonContent, {
-    access: "public",
-    contentType: "application/json",
-  });
+    // Save both JSON and Markdown to blob storage
+    await put(`reports/${report.report_id}.json`, jsonContent, {
+      access: "public",
+      addRandomSuffix: false,
+    });
 
-  await put(`reports/${report.report_id}.md`, mdContent, {
-    access: "public",
-    contentType: "text/markdown",
-  });
+    await put(`reports/${report.report_id}.md`, mdContent, {
+      access: "public",
+      addRandomSuffix: false,
+    });
 
-  return report.report_id;
+    console.log(`✅ Report saved to Blob: ${report.report_id}`);
+    return report.report_id;
+  } catch (error) {
+    console.error("Failed to save report to Blob:", error);
+    throw error;
+  }
 }
 
 /**
