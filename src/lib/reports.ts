@@ -8,6 +8,25 @@ const REPORTS_DIR = path.join(process.cwd(), "reports");
 const IS_VERCEL = !!process.env.BLOB_READ_WRITE_TOKEN;
 
 /**
+ * Helper function to read text from ReadableStream
+ */
+async function streamToText(stream: ReadableStream): Promise<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    result += decoder.decode(value, { stream: true });
+  }
+
+  // Flush any remaining bytes
+  result += decoder.decode();
+  return result;
+}
+
+/**
  * Ensure reports directory exists (filesystem only)
  */
 async function ensureReportsDir() {
@@ -150,7 +169,7 @@ async function listReportsFromBlob(): Promise<ReportSummary[]> {
           }
 
           // Read content from stream
-          const text = await result.stream.text();
+          const text = await streamToText(result.stream);
           const report: Report = JSON.parse(text);
 
           return {
@@ -222,7 +241,7 @@ async function getReportFromBlob(id: string): Promise<Report | null> {
     }
 
     // Read content from stream
-    const text = await result.stream.text();
+    const text = await streamToText(result.stream);
     return JSON.parse(text);
   } catch (error) {
     console.error(`Report not found in Blob: ${id}`, error);
