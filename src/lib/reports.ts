@@ -23,22 +23,6 @@ async function streamToText(stream: ReadableStream): Promise<string> {
 }
 
 /**
- * Ensure reports directory exists (filesystem only)
- */
-async function ensureReportsDir() {
-  const path = await import("path");
-  const fs = await import("fs/promises");
-
-  const REPORTS_DIR = path.join(process.cwd(), "reports");
-
-  try {
-    await fs.access(REPORTS_DIR);
-  } catch {
-    await fs.mkdir(REPORTS_DIR, { recursive: true });
-  }
-}
-
-/**
  * Generate markdown content from report
  */
 function generateMarkdownContent(report: Report): string {
@@ -52,25 +36,6 @@ Date Range: ${report.metadata.date_range.start.split("T")[0]} to ${report.metada
 
 ${report.markdown}
 `;
-}
-
-/**
- * Save report to filesystem (local development)
- */
-async function saveReportToFilesystem(report: Report): Promise<string> {
-  await ensureReportsDir();
-
-  const path = await import("path");
-  const fs = await import("fs/promises");
-  const REPORTS_DIR = path.join(process.cwd(), "reports");
-
-  const jsonPath = path.join(REPORTS_DIR, `${report.report_id}.json`);
-  const mdPath = path.join(REPORTS_DIR, `${report.report_id}.md`);
-
-  await fs.writeFile(jsonPath, JSON.stringify(report, null, 2), "utf-8");
-  await fs.writeFile(mdPath, generateMarkdownContent(report), "utf-8");
-
-  return report.report_id;
 }
 
 /**
@@ -113,51 +78,12 @@ export async function saveReport(report: Report): Promise<string> {
     return report.report_id;
   }
 
-  return IS_VERCEL
-    ? saveReportToBlob(report)
-    : saveReportToFilesystem(report);
-}
-
-/**
- * List reports from filesystem (local development)
- */
-async function listReportsFromFilesystem(): Promise<ReportSummary[]> {
-  await ensureReportsDir();
-
-  const path = await import("path");
-  const fs = await import("fs/promises");
-  const REPORTS_DIR = path.join(process.cwd(), "reports");
-
-  try {
-    const files = await fs.readdir(REPORTS_DIR);
-    const jsonFiles = files.filter((f) => f.endsWith(".json"));
-
-    const reports = await Promise.all(
-      jsonFiles.map(async (file) => {
-        const content = await fs.readFile(
-          path.join(REPORTS_DIR, file),
-          "utf-8"
-        );
-        const report: Report = JSON.parse(content);
-
-        return {
-          id: report.report_id,
-          title: report.title,
-          generated_at: report.metadata.generated_at,
-          commit_count: report.metadata.commit_count,
-          date_range: report.metadata.date_range,
-        };
-      })
-    );
-
-    return reports.sort(
-      (a, b) =>
-        new Date(b.generated_at).getTime() -
-        new Date(a.generated_at).getTime()
-    );
-  } catch (error) {
-    console.error("Error listing reports:", error);
-    return [];
+  if (IS_VERCEL) {
+    return saveReportToBlob(report);
+  } else {
+    // Local development: dynamically import filesystem module
+    const { saveReportToFilesystem } = await import("./reports-fs");
+    return saveReportToFilesystem(report);
   }
 }
 
@@ -225,27 +151,12 @@ export async function listReports(): Promise<ReportSummary[]> {
     return [];
   }
 
-  return IS_VERCEL
-    ? listReportsFromBlob()
-    : listReportsFromFilesystem();
-}
-
-/**
- * Get report from filesystem (local development)
- */
-async function getReportFromFilesystem(id: string): Promise<Report | null> {
-  const path = await import("path");
-  const fs = await import("fs/promises");
-  const REPORTS_DIR = path.join(process.cwd(), "reports");
-
-  const filePath = path.join(REPORTS_DIR, `${id}.json`);
-
-  try {
-    const content = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(content);
-  } catch (error) {
-    console.error(`Report not found: ${id}`, error);
-    return null;
+  if (IS_VERCEL) {
+    return listReportsFromBlob();
+  } else {
+    // Local development: dynamically import filesystem module
+    const { listReportsFromFilesystem } = await import("./reports-fs");
+    return listReportsFromFilesystem();
   }
 }
 
@@ -284,7 +195,11 @@ export async function getReport(id: string): Promise<Report | null> {
     return null;
   }
 
-  return IS_VERCEL
-    ? getReportFromBlob(id)
-    : getReportFromFilesystem(id);
+  if (IS_VERCEL) {
+    return getReportFromBlob(id);
+  } else {
+    // Local development: dynamically import filesystem module
+    const { getReportFromFilesystem } = await import("./reports-fs");
+    return getReportFromFilesystem(id);
+  }
 }
