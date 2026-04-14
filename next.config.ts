@@ -3,10 +3,6 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {
-    // Disable instrumentation which requires async_hooks
-    instrumentationHook: false,
-  },
   webpack: (config, { isServer, webpack }) => {
     if (isServer) {
       // Provide async_hooks polyfill for Cloudflare Workers
