@@ -86,14 +86,15 @@ export async function fetchUserCommits(
         const authorEmail = commit.commit.author?.email?.toLowerCase();
 
         // Match by GitHub username or email
-        const matches = (
-          authorLogin === username.toLowerCase() ||
-          (authorEmail && userEmails.includes(authorEmail))
-        );
+        // If email matches, it's the user's commit regardless of author name
+        const matchesByLogin = authorLogin === username.toLowerCase();
+        const matchesByEmail = authorEmail && userEmails.includes(authorEmail);
+
+        const matches = matchesByLogin || matchesByEmail;
 
         if (!matches && data.length < 10) {
           // Log first few commits if none match
-          console.log(`[GitHub API] ${repo}: Commit by ${authorLogin || 'unknown'} (${authorEmail}) - FILTERED OUT`);
+          console.log(`[GitHub API] ${repo}: Commit by ${authorLogin || 'unknown'} (${authorEmail}) - FILTERED OUT (expected: ${username} or emails: ${userEmails.join(', ')})`);
         }
 
         return matches;

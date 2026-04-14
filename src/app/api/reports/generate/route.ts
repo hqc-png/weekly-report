@@ -106,8 +106,15 @@ export async function POST(request: NextRequest) {
     // 8. Save report to disk
     await saveReport(report);
 
-    // 9. Return report data
-    return NextResponse.json(report);
+    // 9. Return report data (with Cloudflare Pages note)
+    const response = {
+      ...report,
+      _note: process.env.CF_PAGES === '1'
+        ? 'Test mode: Report generated but not saved (Cloudflare Pages deployment test)'
+        : undefined
+    };
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error("Report generation error:", error);
 
