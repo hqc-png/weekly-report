@@ -132,19 +132,16 @@ async function listReportsFromFilesystem(): Promise<ReportSummary[]> {
  */
 async function listReportsFromBlob(): Promise<ReportSummary[]> {
   try {
-    const { list, download } = await import("@vercel/blob");
+    const { list } = await import("@vercel/blob");
 
     const { blobs } = await list({ prefix: "reports/", limit: 1000 });
     const jsonBlobs = blobs.filter((b) => b.pathname.endsWith(".json"));
 
     const reports = await Promise.all(
       jsonBlobs.map(async (blob) => {
-        // Use download() for private blobs
-        const { body } = await download(blob.url, {
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        });
-        const text = await body.text();
-        const report: Report = JSON.parse(text);
+        // For private blobs, the URL includes a token for access
+        const response = await fetch(blob.url);
+        const report: Report = await response.json();
 
         return {
           id: report.report_id,
@@ -196,18 +193,14 @@ async function getReportFromFilesystem(id: string): Promise<Report | null> {
  */
 async function getReportFromBlob(id: string): Promise<Report | null> {
   try {
-    const { head, download } = await import("@vercel/blob");
+    const { head } = await import("@vercel/blob");
 
     const blob = await head(`reports/${id}.json`);
     if (!blob) return null;
 
-    // Use download() for private blobs
-    const { body } = await download(blob.url, {
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-
-    const text = await body.text();
-    return JSON.parse(text);
+    // For private blobs, the URL includes a token for access
+    const response = await fetch(blob.url);
+    return await response.json();
   } catch (error) {
     console.error(`Report not found in Blob: ${id}`, error);
     return null;
