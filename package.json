@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cloudflare": "next build && node scripts/patch-async-hooks.js",
     "start": "next start",
     "lint": "eslint",
     "report": "tsx scripts/generate-report.ts",
